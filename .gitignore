@@ -1,0 +1,123 @@
+# ============================================================
+# f1_oracle — .gitignore
+# ============================================================
+
+# --- Virtual environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Python bytecode / caches ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- C extensions ---
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# --- Packaging / build outputs ---
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+*.whl
+
+# --- Test / coverage outputs ---
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# --- Type checker / linter caches ---
+.mypy_cache/
+.pyre/
+.pytype/
+.ruff_cache/
+
+# --- Jupyter / notebooks ---
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+notebooks/*.html
+notebooks/*.pdf
+notebooks/
+
+# --- Logs / runtime ---
+*.log
+logs/
+runs/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Environment / secrets ---
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+
+# --- Project data & artifacts (keep OUT of git) ---
+data/
+*.parquet
+*.feather
+*.arrow
+*.csv
+*.tsv
+*.jsonl
+*.pkl
+*.pickle
+*.joblib
+*.onnx
+*.npz
+*.npy
+
+# --- FastF1 cache / evaluation / predictions ---
+data/artifacts/fastf1_cache/
+data/evaluation/
+data/predictions/
+
+# --- Local overrides ---
+configs/entries_override.yaml
+
+# --- Misc local artifacts ---
+artifacts/
+
+# --- Model / ML artifacts (extra safety) ---
+artifacts/
+models/*.joblib
+models/*.pkl
+models/*.onnx
+models/*.pt
+models/*.pth
+
+# --- Mac-specific Python tooling (optional) ---
+.python-version
+.envrc
+
+# --- SQLite / local DBs (optional) ---
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Node (if you ever add a UI later) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Git cruft ---
+*.orig
+*~

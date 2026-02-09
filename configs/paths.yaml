@@ -1,0 +1,24 @@
+# configs/paths.yaml
+project:
+  data_dir: data
+
+raw:
+  dir: data/raw
+
+canonical:
+  dir: data/canonical
+
+features:
+  dir: data/features
+
+predictions:
+  dir: data/predictions
+
+evaluation:
+  dir: data/evaluation
+
+artifacts:
+  dir: data/artifacts
+
+logs:
+  dir: logs

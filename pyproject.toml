@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f1-oracle"
+version = "0.1.0"
+description = "Probabilistic Formula 1 weekend forecasting system"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "TBD" }
+authors = [
+  { name = "Stefan Orlic" }
+]
+
+dependencies = [
+  "pyyaml", 
+  "requests",
+  "pandas",
+  "pyarrow",
+  "numpy",
+  "scikit-learn",
+  "xgboost",
+  "joblib",
+  "fastf1",
+]
+
+[project.scripts]
+# CLI command (hyphenated) -> Python entrypoint (underscored module)
+"f1-oracle" = "f1_oracle.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

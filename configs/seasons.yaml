@@ -1,0 +1,9 @@
+# configs/seasons.yaml
+
+ingest:
+  start_year: 2010
+  end_year: 2025
+
+split:
+  train_end_year: 2024
+  backtest_year: 2025
