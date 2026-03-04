@@ -85,6 +85,30 @@ f1-oracle evaluate --season 2026 --start-round 1 --end-round 10 --kind quali --m
 f1-oracle evaluate --season 2026 --start-round 1 --end-round 10 --kind race --mode dist
 ```
 
+## Web dashboard
+The project includes a local dashboard to run commands and inspect predictions/evaluation.
+
+### Start dashboard
+```
+source .venv/bin/activate
+python -m pip install -e .
+f1-oracle dashboard --host 127.0.0.1 --port 8080
+```
+
+Open `http://127.0.0.1:8080`.
+
+### What you can do in the dashboard
+- Load prediction outputs (`quali`/`race`, `top`/`dist`)
+- Compare predictions vs actuals by round
+- Evaluate a round range (`top`/`dist`)
+- Run operational commands (`train`, `run-round`, `predict`, `update`)
+
+### Quick test checklist
+1. Open the dashboard and load a known prediction file from a completed round.
+2. Run `compare` for the same round and verify a summary + table appear.
+3. Run `evaluate` for a short range (for example rounds 1-3) and verify metrics render.
+4. Launch a `predict race` job from Operations and confirm logs stream to completion.
+
 ## Outputs
 - Predictions are written to `data/predictions/season=YYYY/round=R/...`
 - Evaluation snapshots are written to `data/evaluation/baselines/`

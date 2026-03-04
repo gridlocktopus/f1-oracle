@@ -432,6 +432,18 @@ def _cmd_run_round(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    uvicorn.run(
+        "f1_oracle.dashboard.app:app",
+        host=str(args.host),
+        port=int(args.port),
+        reload=bool(args.reload),
+    )
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the CLI."""
     parser = argparse.ArgumentParser(prog="f1-oracle")
@@ -817,6 +829,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Only ingest missing practice and lap summaries",
     )
     run_round.set_defaults(func=_cmd_run_round)
+
+    # -----------------------
+    # Dashboard command
+    # -----------------------
+    dashboard = subparsers.add_parser("dashboard", help="Run local web dashboard")
+    dashboard.add_argument("--host", type=str, default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
+    dashboard.add_argument("--port", type=int, default=8080, help="Bind port (default: 8080)")
+    dashboard.add_argument("--reload", action="store_true", help="Enable autoreload for development")
+    dashboard.set_defaults(func=_cmd_dashboard)
 
     return parser
 

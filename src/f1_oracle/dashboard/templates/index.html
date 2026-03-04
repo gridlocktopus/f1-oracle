@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>f1-oracle dashboard</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>f1-oracle dashboard</h1>
+    <p>Predictions, evaluation, and operations in one place</p>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <h2>Predictions</h2>
+      <form id="pred-form" class="form-grid">
+        <label>Season <input type="number" name="season" value="2025" required></label>
+        <label>Round <input type="number" name="round" value="1" required></label>
+        <label>Kind
+          <select name="kind">
+            <option value="quali">Quali</option>
+            <option value="race">Race</option>
+          </select>
+        </label>
+        <label>Mode
+          <select name="mode">
+            <option value="top">Top</option>
+            <option value="dist">Dist</option>
+          </select>
+        </label>
+        <button type="submit">Load predictions</button>
+      </form>
+      <pre id="pred-path" class="mono"></pre>
+      <div id="pred-table" class="table-wrap"></div>
+    </section>
+
+    <section class="card">
+      <h2>Compare vs Actual</h2>
+      <form id="compare-form" class="form-grid">
+        <label>Season <input type="number" name="season" value="2025" required></label>
+        <label>Round <input type="number" name="round" value="1" required></label>
+        <label>Kind
+          <select name="kind">
+            <option value="quali">Quali</option>
+            <option value="race">Race</option>
+          </select>
+        </label>
+        <label>Mode
+          <select name="mode">
+            <option value="top">Top</option>
+            <option value="dist">Dist</option>
+          </select>
+        </label>
+        <button type="submit">Compare</button>
+      </form>
+      <pre id="compare-summary" class="mono"></pre>
+      <div id="compare-table" class="table-wrap"></div>
+    </section>
+
+    <section class="card">
+      <h2>Evaluate Range</h2>
+      <form id="eval-form" class="form-grid">
+        <label>Season <input type="number" name="season" value="2025" required></label>
+        <label>Start round <input type="number" name="start_round" value="1" required></label>
+        <label>End round <input type="number" name="end_round" value="10" required></label>
+        <label>Kind
+          <select name="kind">
+            <option value="race">Race</option>
+            <option value="quali">Quali</option>
+          </select>
+        </label>
+        <label>Mode
+          <select name="mode">
+            <option value="top">Top</option>
+            <option value="dist">Dist</option>
+          </select>
+        </label>
+        <button type="submit">Evaluate</button>
+      </form>
+      <pre id="eval-summary" class="mono"></pre>
+      <div id="eval-table" class="table-wrap"></div>
+    </section>
+
+    <section class="card">
+      <h2>Operations</h2>
+      <p>Runs the same CLI commands you use in terminal.</p>
+      <form id="job-form" class="form-grid">
+        <label>Command
+          <select name="command">
+            <option value="run-round">run-round</option>
+            <option value="train">train</option>
+            <option value="predict-race">predict race</option>
+            <option value="predict-quali">predict quali</option>
+            <option value="update-race">update race</option>
+            <option value="update-quali">update quali</option>
+          </select>
+        </label>
+        <label>Season <input type="number" name="season" value="2025"></label>
+        <label>Round <input type="number" name="round" value="1"></label>
+        <button type="submit">Run command</button>
+      </form>
+      <pre id="job-status" class="mono"></pre>
+      <pre id="job-output" class="log"></pre>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
+

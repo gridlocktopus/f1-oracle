@@ -23,6 +23,9 @@ dependencies = [
   "xgboost",
   "joblib",
   "fastf1",
+  "fastapi",
+  "uvicorn",
+  "jinja2",
 ]
 
 [project.scripts]
