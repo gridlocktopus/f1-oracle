@@ -14,6 +14,13 @@
 
   <main class="grid">
     <section class="card">
+      <h2>Training Data Coverage</h2>
+      <button id="coverage-refresh" type="button">Refresh coverage</button>
+      <pre id="coverage-summary" class="mono"></pre>
+      <div id="coverage-table" class="table-wrap"></div>
+    </section>
+
+    <section class="card">
       <h2>Predictions</h2>
       <form id="pred-form" class="form-grid">
         <label>Season <input type="number" name="season" value="2025" required></label>
@@ -83,30 +90,64 @@
       <div id="eval-table" class="table-wrap"></div>
     </section>
 
-    <section class="card">
+    <section class="card ops-card">
       <h2>Operations</h2>
-      <p>Runs the same CLI commands you use in terminal.</p>
+      <p>Focused flow: start season and run weekend session by session.</p>
       <form id="job-form" class="form-grid">
         <label>Command
           <select name="command">
-            <option value="run-round">run-round</option>
-            <option value="train">train</option>
+            <option value="season-setup">season setup</option>
+            <option value="status">status</option>
+            <option value="train">train models</option>
+            <option value="ingest-fastf1-practice">ingest practice (fastf1)</option>
+            <option value="predict-quali">predict qualifying</option>
+            <option value="update-quali">update after qualifying</option>
             <option value="predict-race">predict race</option>
-            <option value="predict-quali">predict quali</option>
-            <option value="update-race">update race</option>
-            <option value="update-quali">update quali</option>
+            <option value="update-race">update after race</option>
+            <option value="compare-quali-top">compare quali (top)</option>
+            <option value="compare-race-top">compare race (top)</option>
+            <option value="evaluate-race-top">evaluate race range (top)</option>
+            <option value="evaluate-race-dist">evaluate race range (dist)</option>
           </select>
         </label>
         <label>Season <input type="number" name="season" value="2025"></label>
         <label>Round <input type="number" name="round" value="1"></label>
+        <label>Start round <input type="number" name="start_round" value="1"></label>
+        <label>End round <input type="number" name="end_round" value="5"></label>
+        <label>Sessions <input type="text" name="sessions" value="FP1,FP2,FP3"></label>
+        <label>Tags <input type="text" name="tags" value="dist,top"></label>
         <button type="submit">Run command</button>
       </form>
       <pre id="job-status" class="mono"></pre>
       <pre id="job-output" class="log"></pre>
+    </section>
+
+    <section class="card guide ops-guide-card">
+      <h2>Stage Guide</h2>
+      <ol class="guide-list">
+        <li><strong>New season setup:</strong>
+          <pre class="mono">Operations -> season setup</pre>
+        </li>
+        <li><strong>After FP sessions:</strong>
+          <pre class="mono">Operations -> ingest practice (fastf1)
+Operations -> predict qualifying</pre>
+        </li>
+        <li><strong>After qualifying official:</strong>
+          <pre class="mono">Operations -> update after qualifying
+Operations -> compare quali (top)</pre>
+        </li>
+        <li><strong>Before race start:</strong>
+          <pre class="mono">Operations -> predict race</pre>
+        </li>
+        <li><strong>After race official:</strong>
+          <pre class="mono">Operations -> update after race
+Operations -> compare race (top)</pre>
+        </li>
+      </ol>
+      <p class="hint">Use evaluate commands after multiple rounds to track trend.</p>
     </section>
   </main>
 
   <script src="/static/app.js"></script>
 </body>
 </html>
-

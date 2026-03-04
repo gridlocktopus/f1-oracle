@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pyarrow.dataset as ds
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,7 +36,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 @dataclass
 class Job:
     id: str
-    command: list[str]
+    commands: list[list[str]]
     status: str = "queued"
     output: str = ""
     returncode: int | None = None
@@ -63,6 +64,7 @@ ALLOWED_TOP_LEVEL = {
 
 class CommandRequest(BaseModel):
     argv: list[str] = Field(default_factory=list, description="Arguments after `f1-oracle`")
+    argv_batch: list[list[str]] = Field(default_factory=list, description="Batch commands after `f1-oracle`")
 
 
 def _paths() -> tuple[Path, Path, Path]:
@@ -87,19 +89,28 @@ def _pred_path(season: int, rnd: int, kind: str, mode: str) -> Path:
 def _run_job(job: Job) -> None:
     try:
         job.status = "running"
-        proc = subprocess.Popen(
-            ["f1-oracle", *job.command],
-            cwd=str(REPO_ROOT),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            job.append(line)
-        proc.wait()
-        job.returncode = proc.returncode
-        job.status = "completed" if proc.returncode == 0 else "failed"
+        last_rc = 0
+        for idx, cmd in enumerate(job.commands, start=1):
+            job.append(f"\n$ f1-oracle {' '.join(cmd)}\n")
+            proc = subprocess.Popen(
+                ["f1-oracle", *cmd],
+                cwd=str(REPO_ROOT),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                job.append(line)
+            proc.wait()
+            last_rc = int(proc.returncode or 0)
+            if last_rc != 0:
+                job.returncode = last_rc
+                job.status = "failed"
+                job.append(f"\nCommand {idx}/{len(job.commands)} failed with rc={last_rc}\n")
+                return
+        job.returncode = last_rc
+        job.status = "completed"
     except Exception as exc:  # pragma: no cover
         job.error = str(exc)
         job.status = "failed"
@@ -154,15 +165,80 @@ def api_evaluate(
     return {"summary": summary, "rows": rows}
 
 
+def _read_season_rounds(base: Path) -> pd.DataFrame:
+    if not base.exists():
+        return pd.DataFrame(columns=["season", "round"])
+    t = ds.dataset(str(base), format="parquet", partitioning="hive").to_table(columns=["season", "round"])
+    df = t.to_pandas()
+    if df.empty:
+        return pd.DataFrame(columns=["season", "round"])
+    df["season"] = pd.to_numeric(df["season"], errors="coerce")
+    df["round"] = pd.to_numeric(df["round"], errors="coerce")
+    return df.dropna(subset=["season", "round"])[["season", "round"]].astype({"season": int, "round": int})
+
+
+@app.get("/api/training-coverage")
+def api_training_coverage() -> dict[str, Any]:
+    _, canonical_root, _ = _paths()
+    weekends = _read_season_rounds(canonical_root / "weekends")
+    race_results = _read_season_rounds(canonical_root / "results_race")
+
+    if weekends.empty:
+        return {
+            "trained_range": "none",
+            "completed_seasons": [],
+            "current_season": None,
+            "current_progress": "no canonical weekends data",
+            "rows": [],
+        }
+
+    total_rounds = weekends.groupby("season")["round"].nunique().rename("weekends_rounds")
+    race_rounds = (
+        race_results.groupby("season")["round"].nunique().rename("race_results_rounds")
+        if not race_results.empty
+        else pd.Series(dtype=int, name="race_results_rounds")
+    )
+    frame = pd.concat([total_rounds, race_rounds], axis=1).fillna(0).reset_index()
+    frame["race_results_rounds"] = frame["race_results_rounds"].astype(int)
+    frame["complete"] = frame["race_results_rounds"] >= frame["weekends_rounds"]
+
+    completed = sorted(frame.loc[frame["complete"], "season"].tolist())
+    if completed:
+        trained_range = f"{completed[0]} -> {completed[-1]}"
+    else:
+        trained_range = "none"
+
+    current_season = int(frame["season"].max())
+    current_row = frame.loc[frame["season"] == current_season].iloc[0]
+    current_progress = f"{int(current_row['race_results_rounds'])}/{int(current_row['weekends_rounds'])} rounds with race results"
+
+    return {
+        "trained_range": trained_range,
+        "completed_seasons": completed,
+        "current_season": current_season,
+        "current_progress": current_progress,
+        "rows": frame.sort_values("season", ascending=False).to_dict(orient="records"),
+    }
+
+
 @app.post("/api/jobs")
 def api_create_job(payload: CommandRequest) -> dict[str, Any]:
-    if not payload.argv:
-        raise HTTPException(status_code=400, detail="argv must not be empty")
-    if payload.argv[0] not in ALLOWED_TOP_LEVEL:
-        raise HTTPException(status_code=400, detail="unsupported command")
+    commands: list[list[str]] = []
+    if payload.argv_batch:
+        commands = payload.argv_batch
+    elif payload.argv:
+        commands = [payload.argv]
+    else:
+        raise HTTPException(status_code=400, detail="argv/argv_batch must not be empty")
+
+    for cmd in commands:
+        if not cmd:
+            raise HTTPException(status_code=400, detail="empty command in batch")
+        if cmd[0] not in ALLOWED_TOP_LEVEL:
+            raise HTTPException(status_code=400, detail=f"unsupported command: {cmd[0]}")
 
     job_id = str(uuid.uuid4())
-    job = Job(id=job_id, command=payload.argv)
+    job = Job(id=job_id, commands=commands)
     JOBS[job_id] = job
     thread = threading.Thread(target=_run_job, args=(job,), daemon=True)
     thread.start()
@@ -176,10 +252,9 @@ def api_get_job(job_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="job not found")
     return {
         "job_id": job.id,
-        "command": job.command,
+        "commands": job.commands,
         "status": job.status,
         "returncode": job.returncode,
         "error": job.error,
         "output": job.output,
     }
-

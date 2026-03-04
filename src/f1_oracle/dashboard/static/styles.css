@@ -41,6 +41,17 @@ body {
 .card h2 {
   margin-top: 0;
 }
+.guide-list {
+  margin: 0;
+  padding-left: 18px;
+}
+.guide-list li {
+  margin-bottom: 10px;
+}
+.ops-card,
+.ops-guide-card {
+  min-height: 100%;
+}
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -104,4 +115,8 @@ th, td {
   white-space: nowrap;
 }
 th { color: var(--muted); font-weight: 600; }
-
+.hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 8px 0;
+}
