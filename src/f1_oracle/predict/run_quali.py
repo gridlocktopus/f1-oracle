@@ -75,7 +75,7 @@ def run_quali_prediction(
         written.append(str(path))
         if print_output:
             print("\nQuali top prediction:")
-            print(out.head(print_limit).to_string(index=False))
+            print(out.to_string(index=False))
 
     if "dist" in tags_set:
         scores_arr = features["score"].to_numpy(dtype=float)

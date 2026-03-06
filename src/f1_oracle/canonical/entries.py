@@ -106,13 +106,13 @@ def build_entries_for_season(season: int, raw_dir: str, canonical_dir: str, over
                 else:
                     raise ValueError(f"entries_override.yaml has empty drivers list for season {season}")
             else:
-                t = _fallback_entries_from_previous_season(canonical_root, season)
-                source = "prev_season_results"
-                source_path = str(canonical_root / "results_race" / f"season={season-1}" / "results_race.parquet")
+                t = _fallback_entries_from_current_drivers(canonical_root, season)
+                source = "current_drivers_plus_prev_constructor"
+                source_path = str(canonical_root / "drivers" / f"season={season}" / "drivers.parquet")
         else:
-            t = _fallback_entries_from_previous_season(canonical_root, season)
-            source = "prev_season_results"
-            source_path = str(canonical_root / "results_race" / f"season={season-1}" / "results_race.parquet")
+            t = _fallback_entries_from_current_drivers(canonical_root, season)
+            source = "current_drivers_plus_prev_constructor"
+            source_path = str(canonical_root / "drivers" / f"season={season}" / "drivers.parquet")
 
     # Select only the participation/join columns we need.
     # NOTE: We do NOT use finish_position, status, etc. in entries.
@@ -215,6 +215,44 @@ def _fallback_entries_from_previous_season(canonical_root: Path, season: int) ->
     weekends["key"] = 1
     prev_df["key"] = 1
     df = weekends.merge(prev_df, on="key", how="outer").drop(columns=["key"])
+
+    t = pa.Table.from_pandas(df, preserve_index=False)
+    return t
+
+
+def _fallback_entries_from_current_drivers(canonical_root: Path, season: int) -> pa.Table:
+    """
+    Build provisional entries from current season drivers crossed with weekends.
+
+    Constructor mapping is inherited from previous season race results for drivers
+    that already existed. New drivers without known mapping get constructor_id='unknown'.
+    """
+    drivers_path = canonical_root / "drivers" / f"season={season}" / "drivers.parquet"
+    if not drivers_path.exists():
+        # Last fallback when current season driver list is unavailable.
+        return _fallback_entries_from_previous_season(canonical_root, season)
+
+    drivers = pq.read_table(drivers_path).to_pandas()
+    if "driver_id" not in drivers.columns or drivers.empty:
+        return _fallback_entries_from_previous_season(canonical_root, season)
+
+    prev_path = canonical_root / "results_race" / f"season={season-1}" / "results_race.parquet"
+    prev_map = pd.DataFrame(columns=["driver_id", "constructor_id"])
+    if prev_path.exists():
+        prev = pq.read_table(prev_path).to_pandas()
+        if {"driver_id", "constructor_id"}.issubset(prev.columns):
+            prev_map = prev[["driver_id", "constructor_id"]].drop_duplicates(subset=["driver_id"], keep="last")
+
+    cur = drivers[["driver_id"]].drop_duplicates().copy()
+    cur = cur.merge(prev_map, on="driver_id", how="left")
+    cur["constructor_id"] = cur["constructor_id"].fillna("unknown")
+
+    weekends = _load_weekends_for_season(canonical_root, season).to_pandas()
+    weekends = weekends[["round", "race_name", "circuit_id", "race_date"]]
+
+    weekends["key"] = 1
+    cur["key"] = 1
+    df = weekends.merge(cur, on="key", how="outer").drop(columns=["key"])
 
     t = pa.Table.from_pandas(df, preserve_index=False)
     return t

@@ -13,6 +13,7 @@ from typing import Iterable
 import time
 
 import pandas as pd
+from f1_oracle.common.io import load_yaml
 
 
 @dataclass(frozen=True)
@@ -39,7 +40,79 @@ def _resolve_laps_out_path(raw_dir: Path, season: int, rnd: int, session_type: s
     return out_dir / f"practice_laps_{session_type.lower()}.parquet"
 
 
-def _normalize_results(df: pd.DataFrame, season: int, rnd: int, session_type: str) -> pd.DataFrame:
+def _canonical_drivers_path() -> Path:
+    cfg = load_yaml(Path("configs") / "paths.yaml")
+    canonical_root = Path(cfg.get("canonical", {}).get("dir", "data/canonical"))
+    return canonical_root / "drivers"
+
+
+def _load_driver_lookup_for_season(season: int) -> tuple[dict[int, str], dict[str, str]]:
+    """
+    Return lookup maps:
+      - permanent_number (int) -> canonical driver_id
+      - code (upper str) -> canonical driver_id
+    """
+    path = _canonical_drivers_path() / f"season={season}" / "drivers.parquet"
+    if not path.exists():
+        return {}, {}
+
+    df = pd.read_parquet(path)
+    by_number: dict[int, str] = {}
+    by_code: dict[str, str] = {}
+
+    if "permanent_number" in df.columns and "driver_id" in df.columns:
+        nums = pd.to_numeric(df["permanent_number"], errors="coerce")
+        for n, d in zip(nums, df["driver_id"]):
+            if pd.notna(n) and pd.notna(d):
+                by_number[int(n)] = str(d)
+
+    if "code" in df.columns and "driver_id" in df.columns:
+        for c, d in zip(df["code"], df["driver_id"]):
+            if pd.notna(c) and pd.notna(d):
+                by_code[str(c).strip().upper()] = str(d)
+
+    return by_number, by_code
+
+
+def _resolve_driver_ids(df: pd.DataFrame, season: int) -> pd.Series:
+    """
+    Resolve canonical driver_id from FastF1 frames using multiple fallbacks.
+    """
+    out = pd.Series([pd.NA] * len(df), index=df.index, dtype="object")
+    cols = set(df.columns)
+    by_number, by_code = _load_driver_lookup_for_season(season)
+
+    # 1) Native driver id from FastF1 when present and not empty.
+    for key in ("DriverId", "driverId"):
+        if key in cols:
+            s = df[key].astype("string").str.strip().str.lower()
+            s = s.where(s.notna() & (s != ""))
+            out = out.where(out.notna(), s)
+            break
+
+    # 2) Fallback from three-letter code fields.
+    for key in ("Abbreviation", "Driver"):
+        if key in cols:
+            code = df[key].astype("string").str.strip().str.upper()
+            mapped = code.map(by_code)
+            out = out.where(out.notna(), mapped)
+
+    # 3) Fallback from driver number.
+    if "DriverNumber" in cols:
+        num = pd.to_numeric(df["DriverNumber"], errors="coerce")
+        mapped = num.map(lambda x: by_number.get(int(x)) if pd.notna(x) else pd.NA)
+        out = out.where(out.notna(), mapped)
+
+    return out.astype("string")
+
+
+def _normalize_results(
+    df: pd.DataFrame,
+    season: int,
+    rnd: int,
+    session_type: str,
+    laps: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     """
     Normalize FastF1 session results to a compact schema.
     Expected columns in df: DriverId, Time, Position (fallbacks supported).
@@ -48,12 +121,7 @@ def _normalize_results(df: pd.DataFrame, season: int, rnd: int, session_type: st
         return pd.DataFrame()
 
     cols = set(df.columns)
-    if "DriverId" in cols:
-        driver_id = df["DriverId"]
-    elif "driverId" in cols:
-        driver_id = df["driverId"]
-    else:
-        raise ValueError("FastF1 results missing DriverId/driverId; cannot map to canonical driver_id")
+    driver_id = _resolve_driver_ids(df, season=season)
 
     if "Time" in cols:
         best_time = df["Time"]
@@ -83,6 +151,36 @@ def _normalize_results(df: pd.DataFrame, season: int, rnd: int, session_type: st
     out["best_lap_time_ms"] = out["best_lap_time"].dt.total_seconds() * 1000.0
     out["position"] = pd.to_numeric(out["position"], errors="coerce").astype("Int64")
 
+    # Fallback: if best lap values are missing in results, derive from laps.
+    if laps is not None and not laps.empty:
+        l = laps.copy()
+        l["driver_id"] = _resolve_driver_ids(l, season=season)
+        if "LapTime" in l.columns:
+            l["lap_time_ms"] = pd.to_timedelta(l["LapTime"], errors="coerce").dt.total_seconds() * 1000.0
+            l_best = (
+                l.dropna(subset=["driver_id", "lap_time_ms"])
+                .groupby("driver_id", as_index=False)["lap_time_ms"]
+                .min()
+                .rename(columns={"lap_time_ms": "lap_best_ms"})
+            )
+            if not l_best.empty:
+                out = out.merge(l_best, on="driver_id", how="left")
+                out["best_lap_time_ms"] = out["best_lap_time_ms"].where(out["best_lap_time_ms"].notna(), out["lap_best_ms"])
+                out = out.drop(columns=["lap_best_ms"])
+
+    # If no explicit position, rank by best lap time.
+    if out["position"].isna().all() and out["best_lap_time_ms"].notna().any():
+        out["position"] = out["best_lap_time_ms"].rank(method="min").astype("Int64")
+
+    # Keep only rows with resolved driver id.
+    out["driver_id"] = out["driver_id"].astype("string").str.strip().str.lower()
+    out = out[out["driver_id"].notna() & (out["driver_id"] != "")]
+
+    # Deduplicate driver rows (best lap / best position)
+    if not out.empty:
+        out = out.sort_values(["driver_id", "best_lap_time_ms"], na_position="last")
+        out = out.drop_duplicates(subset=["driver_id"], keep="first").reset_index(drop=True)
+
     return out
 
 
@@ -94,12 +192,7 @@ def _summarize_laps(laps: pd.DataFrame, season: int, rnd: int, session_type: str
         return pd.DataFrame()
 
     df = laps.copy()
-    if "DriverId" in df.columns:
-        df["driver_id"] = df["DriverId"]
-    elif "driverId" in df.columns:
-        df["driver_id"] = df["driverId"]
-    else:
-        return pd.DataFrame()
+    df["driver_id"] = _resolve_driver_ids(df, season=season)
 
     if "LapTime" in df.columns:
         df["lap_time_ms"] = pd.to_timedelta(df["LapTime"], errors="coerce").dt.total_seconds() * 1000.0
@@ -111,6 +204,7 @@ def _summarize_laps(laps: pd.DataFrame, season: int, rnd: int, session_type: str
         if col in df.columns:
             df = df[df[col].isna()]
 
+    df = df[df["driver_id"].notna() & (df["driver_id"].astype("string").str.strip() != "")]
     df = df[df["lap_time_ms"].notna()]
     if df.empty:
         return pd.DataFrame()
@@ -196,7 +290,7 @@ def ingest_practice_for_weekend(
             time.sleep(cfg.session_delay_seconds)
             continue
 
-        norm = _normalize_results(session.results, season, rnd, session_type)
+        norm = _normalize_results(session.results, season, rnd, session_type, laps=session.laps)
         if not norm.empty:
             if not (only_missing and out_path.exists()):
                 norm.to_parquet(out_path, index=False)

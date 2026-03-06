@@ -85,7 +85,7 @@ def run_race_prediction(
         written.append(str(path))
         if print_output:
             print("\nRace top prediction:")
-            print(out.head(print_limit).to_string(index=False))
+            print(out.to_string(index=False))
 
     if "dist" in tags_set:
         scores_arr = features["score"].to_numpy(dtype=float)
