@@ -92,16 +92,19 @@ def build_features_race_post_quali_for_round(*, season: int, rnd: int) -> pd.Dat
             base["season"] = season
             base = base.merge(track_types_df[["season", "round", "track_type"]], on=["season", "round"], how="left")
 
-    # Attach qualifying position for this round
+    # Attach qualifying position for this round.
+    # Join by driver_id (not constructor_id) because preseason entries may carry
+    # provisional/legacy constructor IDs that differ from official weekend IDs.
     q_round["qualifying_position"] = pd.to_numeric(q_round["qualifying_position"], errors="coerce").astype("Int64")
-    base = base.merge(
-        q_round[["driver_id", "constructor_id", "qualifying_position"]],
-        on=["driver_id", "constructor_id"],
-        how="left",
+    q_join = q_round[["driver_id", "constructor_id", "qualifying_position"]].rename(
+        columns={"constructor_id": "qualifying_constructor_id"}
     )
-    # Only keep drivers with qualifying results for this round
-    base = base[base["qualifying_position"].notna()].copy()
-
+    base = base.merge(q_join, on=["driver_id"], how="left")
+    if "qualifying_constructor_id" in base.columns:
+        base["constructor_id"] = base["qualifying_constructor_id"].where(
+            base["qualifying_constructor_id"].notna(), base["constructor_id"]
+        )
+        base = base.drop(columns=["qualifying_constructor_id"], errors="ignore")
     # Teammate-relative qualifying delta for the round
     constructor_q_avg = base.groupby("constructor_id")["qualifying_position"].mean()
     base["constructor_q_avg_pos_round"] = base["constructor_id"].map(constructor_q_avg)

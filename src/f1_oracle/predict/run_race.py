@@ -34,8 +34,8 @@ def run_race_prediction(
     features = build_features_race_post_quali_for_round(season=season, rnd=rnd)
     if features.empty:
         raise ValueError("No race features available for this round.")
-    if "qualifying_position" in features.columns and features["qualifying_position"].isna().any():
-        raise ValueError("Missing qualifying results for this round; ingest/build qualifying results first.")
+    if "qualifying_position" in features.columns and features["qualifying_position"].notna().sum() == 0:
+        raise ValueError("No qualifying results available for this round; ingest/build qualifying results first.")
 
     finish_model = load_model("race_finish")
     dnf_model = load_model("race_dnf")

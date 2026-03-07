@@ -162,7 +162,7 @@ def _align_features(x: pd.DataFrame, model: Pipeline) -> pd.DataFrame:
     out = x.copy()
     for col in expected:
         if col not in out.columns:
-            out[col] = pd.NA
+            out[col] = np.nan
     # Drop any extra columns
     out = out[expected]
     return out
@@ -297,6 +297,8 @@ def predict_race_scores(model: Pipeline, features: pd.DataFrame) -> pd.Series:
     x = features.drop(columns=[c for c in FEATURE_DROP if c in features.columns], errors="ignore")
     x = _sanitize_features(x)
     x = _align_features(x, model)
+    # Re-sanitize after alignment because missing columns are injected at this step.
+    x = _sanitize_features(x)
     preds = model.predict(x)
     return pd.Series(preds, index=features.index, name="score")
 
@@ -313,6 +315,8 @@ def predict_dnf_probs(model: Pipeline | dict, features: pd.DataFrame) -> pd.Seri
     x = features.drop(columns=[c for c in FEATURE_DROP if c in features.columns], errors="ignore")
     x = _sanitize_features(x)
     x = _align_features(x, model)
+    # Re-sanitize after alignment because missing columns are injected at this step.
+    x = _sanitize_features(x)
     probs_all = model.predict_proba(x)
     if probs_all.shape[1] == 1:
         # Model was trained on a single class; return zeros
