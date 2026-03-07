@@ -5,9 +5,11 @@ from __future__ import annotations
 import subprocess
 import threading
 import uuid
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 import pandas as pd
 import pyarrow.dataset as ds
@@ -73,6 +75,11 @@ def _paths() -> tuple[Path, Path, Path]:
     canonical = REPO_ROOT / cfg.get("canonical", {}).get("dir", "data/canonical")
     evaluation = REPO_ROOT / cfg.get("evaluation", {}).get("dir", "data/evaluation")
     return pred, canonical, evaluation
+
+
+def _raw_root() -> Path:
+    cfg = load_yaml(REPO_ROOT / "configs" / "paths.yaml")
+    return REPO_ROOT / cfg.get("raw", {}).get("dir", "data/raw")
 
 
 def _pred_path(season: int, rnd: int, kind: str, mode: str) -> Path:
@@ -218,6 +225,79 @@ def api_training_coverage() -> dict[str, Any]:
         "current_season": current_season,
         "current_progress": current_progress,
         "rows": frame.sort_values("season", ascending=False).to_dict(orient="records"),
+    }
+
+
+def _max_round_in_canonical(canonical_root: Path, dataset_name: str, season: int) -> int | None:
+    base = canonical_root / dataset_name
+    if not base.exists():
+        return None
+    d = ds.dataset(str(base), format="parquet", partitioning="hive")
+    t = d.to_table(filter=ds.field("season") == season, columns=["round"])
+    if t.num_rows == 0:
+        return None
+    df = t.to_pandas()
+    if df.empty:
+        return None
+    s = pd.to_numeric(df["round"], errors="coerce").dropna()
+    if s.empty:
+        return None
+    return int(s.max())
+
+
+def _max_round_in_fastf1_raw(raw_root: Path, season: int) -> int | None:
+    base = raw_root / "fastf1" / f"season={season}"
+    if not base.exists():
+        return None
+    vals: list[int] = []
+    for p in base.glob("round=*"):
+        m = re.match(r"round=(\d+)$", p.name)
+        if m:
+            vals.append(int(m.group(1)))
+    return max(vals) if vals else None
+
+
+def _max_round_in_predictions(pred_root: Path, season: int) -> int | None:
+    base = pred_root / f"season={season}"
+    if not base.exists():
+        return None
+    vals: list[int] = []
+    for p in base.glob("round=*"):
+        m = re.match(r"round=(\d+)$", p.name)
+        if m:
+            vals.append(int(m.group(1)))
+    return max(vals) if vals else None
+
+
+@app.get("/api/defaults")
+def api_defaults() -> dict[str, Any]:
+    pred_root, canonical_root, _ = _paths()
+    raw_root = _raw_root()
+
+    # Pick current season from weekends if available, else current year.
+    seasons: list[int] = []
+    weekends_root = canonical_root / "weekends"
+    if weekends_root.exists():
+        for p in weekends_root.glob("season=*"):
+            m = re.match(r"season=(\d+)$", p.name)
+            if m:
+                seasons.append(int(m.group(1)))
+    season = max(seasons) if seasons else int(datetime.now().year)
+
+    candidates = [
+        _max_round_in_predictions(pred_root, season),
+        _max_round_in_canonical(canonical_root, "results_race", season),
+        _max_round_in_canonical(canonical_root, "results_qualifying", season),
+        _max_round_in_fastf1_raw(raw_root, season),
+    ]
+    rounds = [r for r in candidates if r is not None]
+    rnd = max(rounds) if rounds else 1
+
+    return {
+        "season": season,
+        "round": rnd,
+        "start_round": 1,
+        "end_round": rnd,
     }
 
 

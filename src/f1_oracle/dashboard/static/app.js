@@ -130,6 +130,25 @@ async function refreshCoverage() {
   }
 }
 
+function setAllInputValues(name, value) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
+    el.value = String(value);
+  });
+}
+
+async function loadDefaults() {
+  try {
+    const out = await fetchJson("/api/defaults");
+    setAllInputValues("season", out.season);
+    setAllInputValues("round", out.round);
+    setAllInputValues("start_round", out.start_round);
+    setAllInputValues("end_round", out.end_round);
+  } catch (err) {
+    // Keep static HTML defaults if API defaults are unavailable.
+    console.warn("Failed to load defaults:", err);
+  }
+}
+
 function openTableModal(sourceId, title) {
   const rows = TABLE_STORE[sourceId] || [];
   const modal = document.getElementById("table-modal");
@@ -202,4 +221,9 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeTableModal();
 });
 
-refreshCoverage();
+async function bootstrapDashboard() {
+  await loadDefaults();
+  await refreshCoverage();
+}
+
+bootstrapDashboard();

@@ -173,6 +173,18 @@ button.ghost:hover {
   background: #0a0e16;
 }
 
+/* Predictions should show full grid without internal scrolling. */
+#pred-table.table-wrap {
+  max-height: none;
+  overflow: visible;
+}
+
+/* Coverage should also expand fully in-card. */
+#coverage-table.table-wrap {
+  max-height: none;
+  overflow: visible;
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
