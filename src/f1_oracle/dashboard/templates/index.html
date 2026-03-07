@@ -7,21 +7,28 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
+  <div class="track-lines" aria-hidden="true"></div>
   <header class="topbar">
     <h1>f1-oracle dashboard</h1>
-    <p>Predictions, evaluation, and operations in one place</p>
+    <p>Race-weekend intelligence, updates, and model control</p>
   </header>
 
   <main class="grid">
-    <section class="card">
-      <h2>Training Data Coverage</h2>
+    <section class="card span-6">
+      <div class="card-head">
+        <h2>Training Data Coverage</h2>
+        <button type="button" class="ghost open-full" data-source="coverage-table" data-title="Training Coverage">Full view</button>
+      </div>
       <button id="coverage-refresh" type="button">Refresh coverage</button>
       <pre id="coverage-summary" class="mono"></pre>
       <div id="coverage-table" class="table-wrap"></div>
     </section>
 
-    <section class="card">
-      <h2>Predictions</h2>
+    <section class="card span-6">
+      <div class="card-head">
+        <h2>Predictions</h2>
+        <button type="button" class="ghost open-full" data-source="pred-table" data-title="Predictions">Full view</button>
+      </div>
       <form id="pred-form" class="form-grid">
         <label>Season <input type="number" name="season" value="2025" required></label>
         <label>Round <input type="number" name="round" value="1" required></label>
@@ -43,8 +50,11 @@
       <div id="pred-table" class="table-wrap"></div>
     </section>
 
-    <section class="card">
-      <h2>Compare vs Actual</h2>
+    <section class="card span-12">
+      <div class="card-head">
+        <h2>Compare vs Actual</h2>
+        <button type="button" class="ghost open-full" data-source="compare-table" data-title="Compare vs Actual">Full view</button>
+      </div>
       <form id="compare-form" class="form-grid">
         <label>Season <input type="number" name="season" value="2025" required></label>
         <label>Round <input type="number" name="round" value="1" required></label>
@@ -66,8 +76,11 @@
       <div id="compare-table" class="table-wrap"></div>
     </section>
 
-    <section class="card">
-      <h2>Evaluate Range</h2>
+    <section class="card span-12">
+      <div class="card-head">
+        <h2>Evaluate Range</h2>
+        <button type="button" class="ghost open-full" data-source="eval-table" data-title="Evaluation">Full view</button>
+      </div>
       <form id="eval-form" class="form-grid">
         <label>Season <input type="number" name="season" value="2025" required></label>
         <label>Start round <input type="number" name="start_round" value="1" required></label>
@@ -90,7 +103,7 @@
       <div id="eval-table" class="table-wrap"></div>
     </section>
 
-    <section class="card ops-card">
+    <section class="card ops-card span-8">
       <h2>Operations</h2>
       <p>Focused flow: start season and run weekend session by session.</p>
       <form id="job-form" class="form-grid">
@@ -122,7 +135,7 @@
       <pre id="job-output" class="log"></pre>
     </section>
 
-    <section class="card guide ops-guide-card">
+    <section class="card guide ops-guide-card span-4">
       <h2>Stage Guide</h2>
       <ol class="guide-list">
         <li><strong>New season setup:</strong>
@@ -147,6 +160,17 @@ Operations -> compare race (top)</pre>
       <p class="hint">Use evaluate commands after multiple rounds to track trend.</p>
     </section>
   </main>
+
+  <div id="table-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="modal-close-bg"></div>
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="modal-title">Full view</h3>
+        <button type="button" class="ghost" id="modal-close-btn">Close</button>
+      </div>
+      <div id="modal-table" class="table-wrap modal-table"></div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

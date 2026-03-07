@@ -1,5 +1,8 @@
+const TABLE_STORE = {};
+
 function renderTable(targetId, rows) {
   const root = document.getElementById(targetId);
+  TABLE_STORE[targetId] = Array.isArray(rows) ? rows : [];
   if (!rows || rows.length === 0) {
     root.innerHTML = "<p>No rows.</p>";
     return;
@@ -127,6 +130,20 @@ async function refreshCoverage() {
   }
 }
 
+function openTableModal(sourceId, title) {
+  const rows = TABLE_STORE[sourceId] || [];
+  const modal = document.getElementById("table-modal");
+  const modalTitle = document.getElementById("modal-title");
+  modalTitle.textContent = title || "Full view";
+  renderTable("modal-table", rows);
+  modal.hidden = false;
+}
+
+function closeTableModal() {
+  const modal = document.getElementById("table-modal");
+  modal.hidden = true;
+}
+
 async function pollJob(jobId) {
   const status = document.getElementById("job-status");
   const output = document.getElementById("job-output");
@@ -171,6 +188,18 @@ document.getElementById("job-form").addEventListener("submit", async (e) => {
 
 document.getElementById("coverage-refresh").addEventListener("click", () => {
   refreshCoverage();
+});
+
+document.querySelectorAll(".open-full").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    openTableModal(btn.dataset.source, btn.dataset.title);
+  });
+});
+
+document.getElementById("modal-close-btn").addEventListener("click", closeTableModal);
+document.getElementById("modal-close-bg").addEventListener("click", closeTableModal);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeTableModal();
 });
 
 refreshCoverage();
