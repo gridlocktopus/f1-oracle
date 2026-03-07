@@ -280,7 +280,11 @@ def _cmd_compare_quali(args: argparse.Namespace) -> int:
     print(report["summary"])
     df = report["details"]
     if df is not None:
-        print(df.head(int(args.print_limit)).to_string(index=False))
+        limit = int(args.print_limit)
+        if limit > 0:
+            print(df.head(limit).to_string(index=False))
+        else:
+            print(df.to_string(index=False))
     return 0
 
 
@@ -293,7 +297,11 @@ def _cmd_compare_race(args: argparse.Namespace) -> int:
     print(report["summary"])
     df = report["details"]
     if df is not None:
-        print(df.head(int(args.print_limit)).to_string(index=False))
+        limit = int(args.print_limit)
+        if limit > 0:
+            print(df.head(limit).to_string(index=False))
+        else:
+            print(df.to_string(index=False))
     return 0
 
 
@@ -718,14 +726,14 @@ def _build_parser() -> argparse.ArgumentParser:
     cmp_quali.add_argument("--season", type=int, required=True, help="Season year")
     cmp_quali.add_argument("--round", type=int, required=True, help="Round number")
     cmp_quali.add_argument("--kind", type=str, choices=["top", "dist"], default="top", help="Prediction kind")
-    cmp_quali.add_argument("--print-limit", type=int, default=20, help="Max rows to print")
+    cmp_quali.add_argument("--print-limit", type=int, default=0, help="Max rows to print (0 = all)")
     cmp_quali.set_defaults(func=_cmd_compare_quali)
 
     cmp_race = compare_sub.add_parser("race", help="Compare race predictions")
     cmp_race.add_argument("--season", type=int, required=True, help="Season year")
     cmp_race.add_argument("--round", type=int, required=True, help="Round number")
     cmp_race.add_argument("--kind", type=str, choices=["top", "dist"], default="top", help="Prediction kind")
-    cmp_race.add_argument("--print-limit", type=int, default=20, help="Max rows to print")
+    cmp_race.add_argument("--print-limit", type=int, default=0, help="Max rows to print (0 = all)")
     cmp_race.set_defaults(func=_cmd_compare_race)
 
     # -----------------------

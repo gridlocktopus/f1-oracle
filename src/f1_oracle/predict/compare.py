@@ -49,9 +49,19 @@ def compare_quali(season: int, rnd: int, kind: str) -> dict[str, Any]:
         actual = _load_actual_quali(season, rnd)
         merged = pred.merge(actual, on="driver_id", how="left")
         merged["abs_error"] = (merged["predicted_position"] - merged["qualifying_position"]).abs()
-        mae = merged["abs_error"].mean()
-        exact = (merged["predicted_position"] == merged["qualifying_position"]).sum()
-        summary = f"Quali top: MAE={mae:.3f}, exact={exact}/{len(merged)}"
+        valid = merged["qualifying_position"].notna()
+        mae = merged.loc[valid, "abs_error"].mean()
+        exact = (merged.loc[valid, "predicted_position"] == merged.loc[valid, "qualifying_position"]).sum()
+        missing = int((~valid).sum())
+        summary = (
+            f"Quali top: MAE={mae:.3f}, exact={int(exact)}/{int(valid.sum())}, missing_actual={missing}"
+            if valid.any()
+            else f"Quali top: MAE=nan, exact=0/0, missing_actual={missing}"
+        )
+        merged["qualifying_position"] = (
+            merged["qualifying_position"].astype("Int64").astype("string").fillna("NO_QUALI_RESULT")
+        )
+        merged["abs_error"] = merged["abs_error"].astype("Float64")
         return {"summary": summary, "details": merged}
 
     pred_path = pred_root / f"season={season}" / f"round={rnd}" / "post_practice" / "quali_dist" / "predictions.parquet"
@@ -76,9 +86,19 @@ def compare_race(season: int, rnd: int, kind: str) -> dict[str, Any]:
         actual = _load_actual_race(season, rnd)
         merged = pred.merge(actual, on="driver_id", how="left")
         merged["abs_error"] = (merged["predicted_position"] - merged["finish_position"]).abs()
-        mae = merged["abs_error"].mean()
-        exact = (merged["predicted_position"] == merged["finish_position"]).sum()
-        summary = f"Race top: MAE={mae:.3f}, exact={exact}/{len(merged)}"
+        valid = merged["finish_position"].notna()
+        mae = merged.loc[valid, "abs_error"].mean()
+        exact = (merged.loc[valid, "predicted_position"] == merged.loc[valid, "finish_position"]).sum()
+        missing = int((~valid).sum())
+        summary = (
+            f"Race top: MAE={mae:.3f}, exact={int(exact)}/{int(valid.sum())}, missing_actual={missing}"
+            if valid.any()
+            else f"Race top: MAE=nan, exact=0/0, missing_actual={missing}"
+        )
+        merged["finish_position"] = (
+            merged["finish_position"].astype("Int64").astype("string").fillna("NO_RACE_RESULT")
+        )
+        merged["abs_error"] = merged["abs_error"].astype("Float64")
         return {"summary": summary, "details": merged}
 
     pred_path = pred_root / f"season={season}" / f"round={rnd}" / "post_quali" / "race_dist" / "predictions.parquet"
