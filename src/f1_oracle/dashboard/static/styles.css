@@ -185,6 +185,12 @@ button.ghost:hover {
   overflow: visible;
 }
 
+/* Compare should also show full rows without inner scroll. */
+#compare-table.table-wrap {
+  max-height: none;
+  overflow: visible;
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
