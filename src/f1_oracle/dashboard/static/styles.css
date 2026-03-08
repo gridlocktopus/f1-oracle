@@ -173,6 +173,14 @@ button.ghost:hover {
   background: #0a0e16;
 }
 
+#compare-table.table-open {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0a0e16;
+  overflow: visible;
+}
+
 /* Predictions should show full grid without internal scrolling. */
 #pred-table.table-wrap {
   max-height: none;
@@ -181,12 +189,6 @@ button.ghost:hover {
 
 /* Coverage should also expand fully in-card. */
 #coverage-table.table-wrap {
-  max-height: none;
-  overflow: visible;
-}
-
-/* Compare should also show full rows without inner scroll. */
-#compare-table.table-wrap {
   max-height: none;
   overflow: visible;
 }
