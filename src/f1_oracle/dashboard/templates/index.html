@@ -106,6 +106,14 @@
     <section class="card ops-card span-8">
       <h2>Operations</h2>
       <p>Focused flow: start season and run weekend session by session.</p>
+      <div id="weekend-banner" class="weekend-banner weekend-banner-pending">
+        <div>
+          <div id="weekend-kicker" class="weekend-kicker">Weekend context</div>
+          <div id="weekend-title" class="weekend-title">Loading round context...</div>
+          <div id="weekend-meta" class="weekend-meta">Choose a season and round to load the current weekend flow.</div>
+        </div>
+        <span id="weekend-badge" class="weekend-badge">Checking...</span>
+      </div>
       <form id="job-form" class="form-grid">
         <label>Command
           <select name="command">
@@ -115,6 +123,7 @@
             <option value="ingest-fastf1-practice">ingest practice (fastf1)</option>
             <option value="predict-quali">predict qualifying</option>
             <option value="update-quali">update after qualifying</option>
+            <option value="sync-sprint-results">sync sprint results</option>
             <option value="predict-race">predict race</option>
             <option value="update-race">update after race</option>
             <option value="compare-quali-top">compare quali (top)</option>
@@ -137,26 +146,7 @@
 
     <section class="card guide ops-guide-card span-4">
       <h2>Stage Guide</h2>
-      <ol class="guide-list">
-        <li><strong>New season setup:</strong>
-          <pre class="mono">Operations -> season setup</pre>
-        </li>
-        <li><strong>After FP sessions:</strong>
-          <pre class="mono">Operations -> ingest practice (fastf1)
-Operations -> predict qualifying</pre>
-        </li>
-        <li><strong>After qualifying official:</strong>
-          <pre class="mono">Operations -> update after qualifying
-Operations -> compare quali (top)</pre>
-        </li>
-        <li><strong>Before race start:</strong>
-          <pre class="mono">Operations -> predict race</pre>
-        </li>
-        <li><strong>After race official:</strong>
-          <pre class="mono">Operations -> update after race
-Operations -> compare race (top)</pre>
-        </li>
-      </ol>
+      <div id="stage-guide" class="stage-guide-body"></div>
       <p class="hint">Use evaluate commands after multiple rounds to track trend.</p>
     </section>
   </main>

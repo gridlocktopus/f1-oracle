@@ -24,6 +24,13 @@ def _read_canonical(canonical_dir: str, name: str) -> ds.Dataset:
     return ds.dataset(str(root), format="parquet", partitioning="hive")
 
 
+def _read_optional_canonical(canonical_dir: str, name: str) -> ds.Dataset | None:
+    root = Path(canonical_dir) / name
+    if not root.exists():
+        return None
+    return ds.dataset(str(root), format="parquet", partitioning="hive")
+
+
 def _load_laps_summary(season: int, rnd: int, raw_dir: str) -> pd.DataFrame:
     """
     Load long-run pace summaries from practice laps.
@@ -55,6 +62,7 @@ def build_features_race_post_quali_for_round(*, season: int, rnd: int) -> pd.Dat
     d_weekends = _read_canonical(canonical_dir, "weekends")
     d_q = _read_canonical(canonical_dir, "results_qualifying")
     d_r = _read_canonical(canonical_dir, "results_race")
+    d_s = _read_optional_canonical(canonical_dir, "results_sprint")
 
     entries = d_entries.to_table(
         filter=(ds.field("season") == season) & (ds.field("round") == rnd)
@@ -69,8 +77,9 @@ def build_features_race_post_quali_for_round(*, season: int, rnd: int) -> pd.Dat
     ).to_pandas()
 
     r_all = d_r.to_table(filter=ds.field("season") <= season).to_pandas()
+    s_all = d_s.to_table(filter=ds.field("season") <= season).to_pandas() if d_s is not None else pd.DataFrame()
 
-    for df in (entries, weekends, q_round, r_all):
+    for df in (entries, weekends, q_round, r_all, s_all):
         if "round" in df.columns:
             df["round"] = pd.to_numeric(df["round"], errors="coerce").astype("Int64")
 
@@ -105,6 +114,42 @@ def build_features_race_post_quali_for_round(*, season: int, rnd: int) -> pd.Dat
             base["qualifying_constructor_id"].notna(), base["constructor_id"]
         )
         base = base.drop(columns=["qualifying_constructor_id"], errors="ignore")
+
+    # Sprint signals are valid known inputs for race prediction on sprint weekends.
+    if not s_all.empty:
+        s_all["finish_position"] = pd.to_numeric(s_all["finish_position"], errors="coerce")
+        s_all["grid_position"] = pd.to_numeric(s_all["grid_position"], errors="coerce")
+        s_all["points"] = pd.to_numeric(s_all["points"], errors="coerce")
+        s_all["dnf"] = pd.to_numeric(s_all["dnf"], errors="coerce").fillna(0)
+
+        s_round = s_all[(s_all["season"] == season) & (s_all["round"] == rnd)].copy()
+        if not s_round.empty:
+            s_join = s_round[
+                ["driver_id", "constructor_id", "finish_position", "grid_position", "points", "dnf"]
+            ].rename(
+                columns={
+                    "constructor_id": "sprint_constructor_id",
+                    "finish_position": "sprint_finish_position",
+                    "grid_position": "sprint_grid_position",
+                    "points": "sprint_points",
+                    "dnf": "sprint_dnf",
+                }
+            )
+            base = base.merge(s_join, on=["driver_id"], how="left")
+            base["constructor_id"] = base["sprint_constructor_id"].where(
+                base["sprint_constructor_id"].notna(), base["constructor_id"]
+            )
+            base = base.drop(columns=["sprint_constructor_id"], errors="ignore")
+
+        s_prior = s_all[(s_all["season"] == season) & (s_all["round"] < rnd)].copy()
+        if not s_prior.empty:
+            driver_sprint_finish_avg = s_prior.groupby("driver_id")["finish_position"].mean()
+            driver_sprint_dnf_rate = s_prior.groupby("driver_id")["dnf"].mean()
+            constructor_sprint_finish_avg = s_prior.groupby("constructor_id")["finish_position"].mean()
+
+            base["driver_sprint_avg_pos_season_prior"] = base["driver_id"].map(driver_sprint_finish_avg)
+            base["driver_sprint_dnf_rate_season_prior"] = base["driver_id"].map(driver_sprint_dnf_rate)
+            base["constructor_sprint_avg_pos_season_prior"] = base["constructor_id"].map(constructor_sprint_finish_avg)
     # Teammate-relative qualifying delta for the round
     constructor_q_avg = base.groupby("constructor_id")["qualifying_position"].mean()
     base["constructor_q_avg_pos_round"] = base["constructor_id"].map(constructor_q_avg)

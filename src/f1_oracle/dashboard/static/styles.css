@@ -83,6 +83,75 @@ body {
   margin: 0 0 10px;
 }
 
+.weekend-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 8px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+}
+
+.weekend-banner-standard {
+  border-color: rgba(99, 115, 148, 0.55);
+  background: linear-gradient(135deg, rgba(43, 53, 77, 0.7), rgba(18, 23, 35, 0.9));
+}
+
+.weekend-banner-sprint {
+  border-color: rgba(225, 6, 0, 0.55);
+  background: linear-gradient(135deg, rgba(88, 10, 10, 0.85), rgba(26, 18, 24, 0.92));
+}
+
+.weekend-banner-pending {
+  border-color: rgba(132, 145, 171, 0.35);
+}
+
+.weekend-kicker {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  margin-bottom: 4px;
+}
+
+.weekend-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.weekend-meta {
+  color: #d3dbef;
+  font-size: 0.84rem;
+}
+
+.weekend-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.weekend-badge-standard {
+  color: #dce6ff;
+  background: rgba(90, 115, 173, 0.16);
+  border-color: rgba(90, 115, 173, 0.35);
+}
+
+.weekend-badge-sprint {
+  color: #fff1f1;
+  background: rgba(225, 6, 0, 0.18);
+  border-color: rgba(255, 79, 79, 0.36);
+}
+
 .guide-list {
   margin: 0;
   padding-left: 18px;
@@ -90,6 +159,14 @@ body {
 
 .guide-list li {
   margin-bottom: 10px;
+}
+
+.stage-guide-body .hint {
+  margin-bottom: 0;
+}
+
+.sprint-note {
+  color: #ffd2d2;
 }
 
 .form-grid {
@@ -274,5 +351,10 @@ td {
   .span-8,
   .span-4 {
     grid-column: span 12;
+  }
+
+  .weekend-banner {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

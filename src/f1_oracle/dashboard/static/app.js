@@ -1,5 +1,14 @@
 const TABLE_STORE = {};
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function renderTable(targetId, rows) {
   const root = document.getElementById(targetId);
   TABLE_STORE[targetId] = Array.isArray(rows) ? rows : [];
@@ -8,9 +17,9 @@ function renderTable(targetId, rows) {
     return;
   }
   const cols = Object.keys(rows[0]);
-  const head = `<tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>`;
+  const head = `<tr>${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
   const body = rows
-    .map((r) => `<tr>${cols.map((c) => `<td>${String(r[c] ?? "")}</td>`).join("")}</tr>`)
+    .map((r) => `<tr>${cols.map((c) => `<td>${escapeHtml(r[c] ?? "")}</td>`).join("")}</tr>`)
     .join("");
   root.innerHTML = `<table>${head}${body}</table>`;
 }
@@ -106,6 +115,12 @@ function commandArgv(command, p) {
   if (command === "compare-quali-top") return ["compare", "quali", "--season", p.season, "--round", p.round, "--kind", "top"];
   if (command === "update-race") return ["update", "race", "--season", p.season, "--round", p.round];
   if (command === "update-quali") return ["update", "quali", "--season", p.season, "--round", p.round];
+  if (command === "sync-sprint-results") {
+    return [
+      ["ingest", "ergast", "results", "sprint", "--season", p.season],
+      ["build", "canonical", "results", "sprint", "--season", p.season],
+    ];
+  }
   if (command === "evaluate-race-top") return ["evaluate", "--season", p.season, "--start-round", p.startRound, "--end-round", p.endRound, "--kind", "race", "--mode", "top"];
   if (command === "evaluate-race-dist") return ["evaluate", "--season", p.season, "--start-round", p.startRound, "--end-round", p.endRound, "--kind", "race", "--mode", "dist"];
   if (command === "ingest-fastf1-practice") return ["ingest", "fastf1", "practice", "--season", p.season, "--round", p.round, "--sessions", p.sessions, "--only-missing"];
@@ -134,6 +149,86 @@ function setAllInputValues(name, value) {
   document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
     el.value = String(value);
   });
+}
+
+function getOpsSeasonRound() {
+  const form = document.getElementById("job-form");
+  return {
+    season: String(form.elements.season.value || ""),
+    round: String(form.elements.round.value || ""),
+  };
+}
+
+function renderStageGuide(info) {
+  const root = document.getElementById("stage-guide");
+  if (!root) return;
+
+  const sprintBlock = info.sprint_weekend
+    ? `
+      <li><strong>After sprint official:</strong>
+        <pre class="mono">Operations -> sync sprint results
+Operations -> predict race</pre>
+      </li>`
+    : "";
+
+  const sprintHint = info.sprint_weekend
+    ? `<p class="hint sprint-note">Sprint weekend detected. Sync sprint results after the sprint so race predictions use that extra signal.</p>`
+    : `<p class="hint">Standard weekend flow: qualifying feeds race prediction directly.</p>`;
+
+  root.innerHTML = `
+    <ol class="guide-list">
+      <li><strong>New season setup:</strong>
+        <pre class="mono">Operations -> season setup</pre>
+      </li>
+      <li><strong>After practice sessions:</strong>
+        <pre class="mono">Operations -> ingest practice (fastf1)
+Operations -> predict qualifying</pre>
+      </li>
+      <li><strong>After qualifying official:</strong>
+        <pre class="mono">Operations -> update after qualifying
+Operations -> compare quali (top)</pre>
+      </li>
+      ${sprintBlock}
+      <li><strong>Before the grand prix:</strong>
+        <pre class="mono">Operations -> predict race</pre>
+      </li>
+      <li><strong>After race official:</strong>
+        <pre class="mono">Operations -> update after race
+Operations -> compare race (top)</pre>
+      </li>
+    </ol>
+    ${sprintHint}
+  `;
+}
+
+async function refreshWeekendInfo() {
+  const banner = document.getElementById("weekend-banner");
+  const title = document.getElementById("weekend-title");
+  const meta = document.getElementById("weekend-meta");
+  const badge = document.getElementById("weekend-badge");
+  const { season, round } = getOpsSeasonRound();
+
+  try {
+    const out = await fetchJson(`/api/weekend-info?${new URLSearchParams({ season, rnd: round }).toString()}`);
+    banner.className = `weekend-banner ${out.sprint_weekend ? "weekend-banner-sprint" : "weekend-banner-standard"}`;
+    badge.className = `weekend-badge ${out.sprint_weekend ? "weekend-badge-sprint" : "weekend-badge-standard"}`;
+    badge.textContent = out.sprint_weekend ? "Sprint Weekend" : "Standard Weekend";
+    title.textContent = `${out.race_name || "Race weekend"} - round ${out.round}`;
+    const scheduleBits = [
+      out.qualifying_date ? `Qualifying: ${out.qualifying_date}` : null,
+      out.sprint_date ? `Sprint: ${out.sprint_date}` : null,
+      out.race_date ? `Race: ${out.race_date}` : null,
+    ].filter(Boolean);
+    meta.textContent = scheduleBits.join(" | ") || "Weekend schedule available.";
+    renderStageGuide(out);
+  } catch (err) {
+    banner.className = "weekend-banner weekend-banner-pending";
+    badge.className = "weekend-badge";
+    badge.textContent = "Unavailable";
+    title.textContent = "Weekend context unavailable";
+    meta.textContent = String(err);
+    renderStageGuide({ sprint_weekend: false });
+  }
 }
 
 async function loadDefaults() {
@@ -174,6 +269,7 @@ async function pollJob(jobId) {
     output.scrollTop = output.scrollHeight;
     if (out.status === "completed" || out.status === "failed") {
       refreshCoverage();
+      refreshWeekendInfo();
       break;
     }
     await new Promise((r) => setTimeout(r, 1200));
@@ -224,6 +320,12 @@ document.addEventListener("keydown", (e) => {
 async function bootstrapDashboard() {
   await loadDefaults();
   await refreshCoverage();
+  await refreshWeekendInfo();
 }
+
+document.querySelectorAll('#job-form input[name="season"], #job-form input[name="round"]').forEach((el) => {
+  el.addEventListener("change", refreshWeekendInfo);
+  el.addEventListener("input", refreshWeekendInfo);
+});
 
 bootstrapDashboard();

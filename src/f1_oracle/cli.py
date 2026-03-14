@@ -370,11 +370,19 @@ def _cmd_status(args: argparse.Namespace) -> int:
     print(f"canonical/weekends: {_has_canonical('weekends')}")
     print(f"canonical/entries: {_has_canonical('entries')}")
     print(f"canonical/results_qualifying: {_has_canonical('results_qualifying')}")
+    print(f"canonical/results_sprint: {_has_canonical('results_sprint')}")
     print(f"canonical/results_race: {_has_canonical('results_race')}")
 
     if rnd is not None:
         practice_dir = Path(raw_dir) / "fastf1" / f"season={season}" / f"round={rnd}"
         print(f"fastf1 practice for round {rnd}: {practice_dir.exists()}")
+        weekends_path = Path(canonical_dir) / "weekends" / f"season={season}" / "weekends.parquet"
+        if weekends_path.exists():
+            weekends = pd.read_parquet(weekends_path)
+            row = weekends[pd.to_numeric(weekends["round"], errors="coerce") == rnd]
+            if not row.empty and "sprint_date" in row.columns:
+                sprint_date = row.iloc[0]["sprint_date"]
+                print(f"round {rnd} sprint weekend: {pd.notna(sprint_date)}")
 
     return 0
 

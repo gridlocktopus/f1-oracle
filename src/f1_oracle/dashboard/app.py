@@ -301,6 +301,32 @@ def api_defaults() -> dict[str, Any]:
     }
 
 
+@app.get("/api/weekend-info")
+def api_weekend_info(season: int, rnd: int) -> dict[str, Any]:
+    _, canonical_root, _ = _paths()
+    weekends_path = canonical_root / "weekends" / f"season={season}" / "weekends.parquet"
+    if not weekends_path.exists():
+        raise HTTPException(status_code=404, detail="weekend data not found")
+
+    weekends = pd.read_parquet(weekends_path)
+    weekends["round"] = pd.to_numeric(weekends["round"], errors="coerce")
+    row = weekends[weekends["round"] == rnd]
+    if row.empty:
+        raise HTTPException(status_code=404, detail="round not found")
+
+    item = row.iloc[0]
+    sprint_date = item.get("sprint_date")
+    return {
+        "season": int(season),
+        "round": int(rnd),
+        "race_name": str(item.get("race_name", "")),
+        "race_date": None if pd.isna(item.get("race_date")) else str(item.get("race_date")),
+        "qualifying_date": None if pd.isna(item.get("qualifying_date")) else str(item.get("qualifying_date")),
+        "sprint_date": None if pd.isna(sprint_date) else str(sprint_date),
+        "sprint_weekend": pd.notna(sprint_date),
+    }
+
+
 @app.post("/api/jobs")
 def api_create_job(payload: CommandRequest) -> dict[str, Any]:
     commands: list[list[str]] = []
